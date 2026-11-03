@@ -1,3 +1,21 @@
+-- Fixtures replaced body-owned shapes in LÖVE 0.8; keep the original geometry.
+function rectanglefixture(body, x, y, width, height)
+    return love.physics.newFixture(body, love.physics.newRectangleShape(x, y, width, height), 1)
+end
+
+function rollingbody(world, x, y, radius)
+    local body = love.physics.newBody(world, x, y, "dynamic")
+    local fixture = love.physics.newFixture(body, love.physics.newCircleShape(radius), 1)
+    body:setBullet(true)
+    body:setMassData(0, 0, 0.1, 0.001)
+    return body, fixture
+end
+
+function joystickaxis(index, axis)
+    local joystick = love.joystick.getJoysticks()[index + 1]
+    return joystick and joystick:getAxis(axis + 1) or 0
+end
+
 function love.load()
 	
 	require "normal"
@@ -27,7 +45,7 @@ function love.load()
 							joystick="point with your\n\njoystick",
 							['wheel steering']="drive like a car",
 							['wheel direct']="1:1 wheel to\n\ngame translation"}
-	controlmethod = "mouse"
+	controlmethod = love.system.getOS() == "Web" and "keyboard" or "mouse"
 	
 	pacfocus = false
 	superpower = "normal" --clone, walls, normal
@@ -52,7 +70,7 @@ function love.load()
 	
 	loadhighscores()
 	
-	icon = love.graphics.newImage("graphics/icon.png");icon:setFilter("nearest", "nearest")
+	icon = love.image.newImageData("graphics/icon.png")
 	changescale(scale)
 	
 	boardwidth = 220
@@ -81,8 +99,8 @@ function love.load()
 	logoblood = love.graphics.newImage("graphics/logoblood.png")
 	
 	
-	fontimage = love.graphics.newImage("graphics/font.png");fontimage:setFilter("nearest","nearest")
-	pacmanfont = love.graphics.newImageFont(fontimage, "0123456789abcdefghijklmnopqrstuvwxyz.:/,'C-_> <")
+	pacmanfont = love.graphics.newImageFont("graphics/font.png", "0123456789abcdefghijklmnopqrstuvwxyz.:/,'C-_> <")
+	pacmanfont:setFilter("nearest", "nearest")
 	love.graphics.setFont(pacmanfont)
 	
 	--SOUNDS--
@@ -117,9 +135,9 @@ function love.draw()
 	end
 end
 
-function love.keypressed(key, unicode)
+function love.keypressed(key)
 	if _G[gamestate .. "_keypressed"] then
-		_G[gamestate .. "_keypressed"](key, unicode)
+		_G[gamestate .. "_keypressed"](key)
 	end
 end
 
@@ -168,12 +186,12 @@ function changescale(s)
 	end
 	
 	if love.graphics.getWidth() ~= windowwidth or love.graphics.getHeight() ~= windowheight then
-		love.graphics.setMode(windowwidth, windowheight, fullscreen, vsync, fsaa)
+		love.window.setMode(windowwidth, windowheight, {fullscreen=fullscreen, vsync=1, msaa=0})
 	end
 	
-	love.graphics.setIcon(icon)
+	love.window.setIcon(icon)
 	
-	love.mouse.setGrab(grabbed)
+	love.mouse.setGrabbed(grabbed)
 end
 
 function print_r (t, indent) --Not by me
@@ -186,46 +204,65 @@ function print_r (t, indent) --Not by me
 end
 
 function loadhighscores()
-	if love.filesystem.exists("highscoreA") then
-		local s = love.filesystem.read("highscoreA"):split("#")
-		if #s < 2 then
-			s[3] = s[1]
-		else
-			controlmethod = s[1]
-			scale = tonumber(s[2])
-		end
-		local t = s[3]
-		highscoreA = t:split(";")
-		for i = 1, #highscoreA do
-			highscoreA[i] = highscoreA[i]:split(":")
-			highscoreA[i][1] = tonumber(highscoreA[i][1])
-			highscoreA[i][2] = tonumber(highscoreA[i][2])
-		end
-	else
-		highscoreA = {}
-		for i = 1, numhighscores do
-			highscoreA[i] = {0, 0, "------"}
-		end
-	end
-	
-	savehighscoresA()
+    highscoreA = {}
+    for i = 1, numhighscores do highscoreA[i] = {0, 0, "------"} end
+    if not love.filesystem.getInfo("highscoreA", "file") then return end
+    local ok, text = pcall(love.filesystem.read, "highscoreA")
+    if not ok or type(text) ~= "string" or #text > 65536 then return end
+    local method, size, rows = text:match("^([^#]+)#([^#]+)#(.*)$")
+    if method then
+        for _, candidate in ipairs(controlmethods) do
+            if method == candidate then controlmethod = method; break end
+        end
+        size = tonumber(size)
+        if size and size >= 1 and size <= 4 and size % 1 == 0 then scale = size end
+    else
+        rows = text -- Legacy scores did not have the settings prefix.
+    end
+    local i = 0
+    for row in rows:gmatch("[^;]+") do
+        i = i + 1
+        if i > numhighscores then break end
+        local pellets, elapsed, name = row:match("^([^:]+):([^:]+):([^:]*)$")
+        pellets, elapsed = tonumber(pellets), tonumber(elapsed)
+        if pellets and pellets >= 0 and pellets <= 244 and pellets % 1 == 0
+            and elapsed and elapsed >= 0 and elapsed < math.huge
+            and name and #name <= 6 and not name:find("[^a-z 0-9%-]") then
+            highscoreA[i] = {pellets, elapsed, name}
+        end
+    end
 end
 
 function savehighscoresA()
-	local s = controlmethod .. "#"
-	local s = s .. scale .. "#"
-	for i = 1, numhighscores do
-		if (highscoreA[i][1] and highscoreA[i][2] and highscoreA[i][3]) then
-			s = s .. highscoreA[i][1] .. ":" .. highscoreA[i][2] .. ":" .. highscoreA[i][3]
-		else
-			s = s .. "------" .. ":0:0"
-		end
-		if i ~= numhighscores then
-			s = s .. ";"
-		end
-	end
-	
-	love.filesystem.write("highscoreA", s)
+    local rows = {}
+    for i = 1, numhighscores do
+        local row = highscoreA[i]
+        rows[i] = row[1] .. ":" .. row[2] .. ":" .. row[3]
+    end
+    local text = controlmethod .. "#" .. scale .. "#" .. table.concat(rows, ";")
+    local ok, result = pcall(love.filesystem.write, "highscoreA", text)
+    if not ok or not result then print("Could not save highscores; continuing without storage.") end
+end
+
+-- Modern LÖVE supplies typed characters separately from key names.
+function love.textinput(text)
+    if gamestate == "highscoreentry" and high ~= 0 then
+        for char in text:lower():gmatch(".") do
+            if whitelist:find(char, 1, true) and #highscoreA[high][3] < 6 then
+                highscoreA[high][3] = highscoreA[high][3] .. char
+                cursorblink = true
+                local sound = _G["wakka" .. (#highscoreA[high][3] % 2 + 1)]
+                sound:stop(); sound:play()
+            end
+        end
+    end
+end
+
+-- Mouse warping is unavailable in browsers. Consume real motion events instead.
+function love.mousemoved(x, y, dx, dy)
+    if controlmethod ~= "mouse" then return end
+    if gamestate == "normal" then targetrotation = targetrotation + dx / 3
+    elseif gamestate == "options" then demotargetrotation = demotargetrotation + dx / 3 end
 end
 
 function addzeros(s, i)
