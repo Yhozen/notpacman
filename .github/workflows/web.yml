@@ -1,0 +1,33 @@
+name: Build web game
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: sudo apt-get update && sudo apt-get install -y lua5.4
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notpacman-web
+          path: dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notpacman-love
+          path: build/notpacman.love

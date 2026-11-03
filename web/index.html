@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Not Pacman</title><link rel="stylesheet" href="style.css"><link rel="icon" href="data:,"></head>
+<body><main><h1>Not Pacman</h1><p>Pacman with physics, by Stabyourself.net</p>
+<div id="stage"><canvas id="canvas" width="640" height="500" tabindex="0" aria-label="Not Pacman game"></canvas><div id="overlay"><h2>Turn the maze. Follow gravity.</h2><p id="status" role="status" aria-live="polite">Loading game engine…</p><button id="start" disabled>Play</button></div></div>
+<p><button id="fullscreen">Fullscreen</button> <span id="storage" role="status">High scores and controls are saved in this browser.</span></p>
+<p>Use Enter to start, Left and Right to rotate the maze, and Shift to turn faster. Escape returns to the menu. Use Up and Down to select Play or Options; press Enter to choose.</p>
+<p>Mouse and controller modes are available in Options. Close or reload this tab to leave the game. Saves are local to this browser and site; private browsing may discard them.</p>
+<footer><a href="LICENSE.txt">Game license</a> · <a href="love.js-LICENSE.txt">love.js license</a> · <a href="https://stabyourself.net/notpacman/">Original game</a> · <a href="https://github.com/Stabyourself/notpacman">Original source</a> · <a href="source.zip">Browser port source</a></footer>
+</main><script src="app.js"></script><script src="game.js" onerror="failGame('Could not load game assets.')"></script><script src="love.js" onload="engineReady()" onerror="failGame('Could not load game engine.')"></script></body></html>

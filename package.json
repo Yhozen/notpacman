@@ -1,0 +1,13 @@
+{
+  "name": "notpacman-web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "python3 scripts/package.py && love.js -c -t \"Not Pacman\" -m 134217728 build/notpacman.love dist && node scripts/finish-build.cjs && python3 scripts/source.py",
+    "test": "python3 -m unittest discover -s tests -p 'test_*.py' && node --test tests/*.test.cjs && lua tests/save.lua",
+    "serve": "python3 -m http.server 8080 --directory dist --bind 127.0.0.1"
+  },
+  "devDependencies": {
+    "love.js": "11.4.1"
+  }
+}
